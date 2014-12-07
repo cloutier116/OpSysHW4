@@ -11,11 +11,12 @@ class process:
  		self.exit = exit
  		self.running = False
  		self.location = 0
+ 		self.memorySizes = []
 
  	def __str__(self):
- 		return "Process " + self.letter + " with size " + str(self.frames) + " starting at time " + str(self.arrival[0]) + " and ending at time " + str(self.exit[0])
+ 		return "process " + self.letter + " with size " + str(self.frames) + " starting at time " + str(self.arrival[0]) + " and ending at time " + str(self.exit[0])
  	def __repr__(self):
- 		return "Process " + self.letter + " with size " + str(self.frames) + " starting at time " + str(self.arrival[0]) + " and ending at time " + str(self.exit[0])
+ 		return "process " + self.letter + " with size " + str(self.frames) + " starting at time " + str(self.arrival[0]) + " and ending at time " + str(self.exit[0])
 
 def printMem():
 	string = ""
@@ -25,6 +26,20 @@ def printMem():
 			string += "\n"
 		string += memory[i]
 	print string
+
+def sortSpaces(emptySpaces):
+	emptySpaces = sorted(emptySpaces, key = lambda spaces: spaces[0])
+	i = 0
+	while i < len(emptySpaces):
+		if i < len(emptySpaces) - 1:
+			if emptySpaces[i][0] + emptySpaces[i][1] == emptySpaces[i+1][0]:
+				emptySpaces[i] = [emptySpaces[i][0], emptySpaces[i][1] + emptySpaces[i+1][1]]
+				emptySpaces.pop(i+1)
+			else:
+				i+= 1
+		else:
+			i+=1
+	return emptySpaces
 
 def addFirst(process):
 	firstSpace = None
@@ -41,16 +56,68 @@ def addFirst(process):
 		emptySpaces.append([firstSpace[0]+process.frames, firstSpace[1]-process.frames])
 	process.location = firstSpace[0]
 
-def addProcess(process):
+
+def addNext(process, emptySpaces):
+	nextSpace = None
+	lastSpace = None
+
+	for space in emptySpaces:
+		if space[0] < addNext.cursor:
+			lastSpace = space
+	if lastSpace:
+		if lastSpace[1] - (addNext.cursor - lastSpace[0]) > process.frames:
+			emptySpaces.remove(lastSpace)
+			oldSize = lastSpace[1]
+			lastSpace = [lastSpace[0], addNext.cursor - lastSpace[0]]
+			nextSpace = [addNext.cursor, oldSize-lastSpace[1]]
+			
+			emptySpaces.append(nextSpace)
+			emptySpaces.append(lastSpace)
+			emptySpaces = sorted(emptySpaces, key = lambda spaces: spaces[0])
+	
+	if nextSpace == None:
+		for space in emptySpaces:
+			if space[0] >= addNext.cursor:
+				nextSpace = space
+				break
+	if nextSpace == None:
+		nextSpace = emptySpaces[0]
+
+	firstSpace = None
+	for space in emptySpaces[emptySpaces.index(nextSpace):]:
+		if space[1] >= process.frames:
+			firstSpace = space
+			break
+	if firstSpace == None:
+		for space in emptySpaces[:emptySpaces.index(nextSpace)]:
+			if space[1] >= process.frames:
+				firstSpace = space
+				break
+
+
+	for i in range(firstSpace[0], firstSpace[0] + process.frames):
+		memory[i] = process.letter
+	process.running = True
+	emptySpaces.remove(firstSpace)
+	if firstSpace[1]-process.frames > 0:
+		emptySpaces.append([firstSpace[0]+process.frames, firstSpace[1]-process.frames])
+	process.location = firstSpace[0]
+	addNext.cursor = firstSpace[0] + process.frames
+	return emptySpaces
+
+addNext.cursor = 0
+
+def addProcess(process, emptySpaces):
 	if algorithm == "first":
 		addFirst(process)
 	elif algorithm == "best":
 		addBest(process)
 	elif algorithm == "next":
-		addNext(process)
+		emptySpaces = addNext(process, emptySpaces)
 	elif algorithm == "worst":
 		addWorst(process)
-	print "Adding " + process.letter
+
+	return emptySpaces
 
 def removeProcess(process):
 	for i in range(process.location, process.location + process.frames):
@@ -62,7 +129,7 @@ def removeProcess(process):
 	process.exit.pop(0)
 	if not process.arrival:
 		processes.remove(process)
-	print "Removing " + process.letter
+
 
 
 if len(sys.argv) == 3:
@@ -72,10 +139,16 @@ if len(sys.argv) == 3:
 	quiet = False
 	inFile = open(sys.argv[1], 'r')
 	algorithm = sys.argv[2]
+	if algorithm != "first" and algorithm != "best" and algorithm != "next" and algorithm != "worst":
+		print "USAGE: python HW4.py [-q] <input file> { noncontig | first | best | next | worst }"
+		sys.exit()
 elif len(sys.argv) == 4:
 	quiet = True
 	inFile = open(sys.argv[2], 'r')
 	algorithm = sys.argv[3]
+	if algorithm != "first" and algorithm != "best" and algorithm != "next" and algorithm != "worst":
+		print "USAGE: python HW4.py [-q] <input file> { noncontig | first | best | next | worst }"
+		sys.exit()
 else:
 	print "USAGE: python HW4.py [-q] <input file> { noncontig | first | best | next | worst }"
 	sys.exit()
@@ -116,14 +189,20 @@ for process in processes:
 		memend += process.frames
 
 emptySpaces.append([memend, 1600-memend])
-print emptySpaces
+#print emptySpaces
 
 print "Memory at time 0:"
 printMem()
 
 time = 0
+timer = -1
+if not quiet:
+	timer = int(raw_input("Enter time until print:"))
 while processes:
-	
+	if timer == 0:
+		break
+	emptySpaces = sorted(emptySpaces, key = lambda spaces: spaces[0])
+
 	shortest = float("inf")
 	shortestProc = []
 	for process in processes:
@@ -151,18 +230,24 @@ while processes:
 			shortestProc.remove(process)
 	#print shortestProc
 
+	#sort empty spaces and combine contiguous small spaces 
+	emptySpaces = sortSpaces(emptySpaces)
+
+
 	for process in shortestProc:
 		if not process.running:
-			addProcess(process)
+			emptySpaces = addProcess(process, emptySpaces)
+
 
 	if quiet:
 		print "Memory at time " + str(time) + ":"
 		printMem()
+	elif time >= timer:
+		print "Memory at time " + str(time) + ":"
+		printMem()
+		timer = int(raw_input("Enter time for next print:"))
+	
 
-	#sort empty spaces and combine contiguous small spaces 
 	emptySpaces = sorted(emptySpaces, key = lambda spaces: spaces[0])
-
-	print emptySpaces
 	
 	
-
