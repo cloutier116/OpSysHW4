@@ -55,6 +55,41 @@ def addFirst(process):
 	if firstSpace[1]-process.frames > 0:
 		emptySpaces.append([firstSpace[0]+process.frames, firstSpace[1]-process.frames])
 	process.location = firstSpace[0]
+def addBest(process):
+	bestSpace = None
+	currentBest = float("inf")
+	for space in emptySpaces:
+		if space[1] >= process.frames:
+			if space[1] <= currentBest:
+				bestSpace = space
+				currentBest = space[1]
+			
+
+	for i in range(bestSpace[0], bestSpace[0] + process.frames):
+		memory[i] = process.letter
+	process.running = True
+	emptySpaces.remove(bestSpace)
+	if bestSpace[1]-process.frames > 0:
+		emptySpaces.append([bestSpace[0]+process.frames, bestSpace[1]-process.frames])
+	process.location = bestSpace[0]
+
+def addWorst(process):
+	worseSpace = None
+	currentworse = 0
+	for space in emptySpaces:
+		if space[1] >= process.frames:
+			if space[1] >= currentworse:
+				worseSpace = space
+				currentworse = space[1]
+			
+
+	for i in range(worseSpace[0], worseSpace[0] + process.frames):
+		memory[i] = process.letter
+	process.running = True
+	emptySpaces.remove(worseSpace)
+	if worseSpace[1]-process.frames > 0:
+		emptySpaces.append([worseSpace[0]+process.frames, worseSpace[1]-process.frames])
+	process.location = worseSpace[0]
 
 
 def addNext(process, emptySpaces):
