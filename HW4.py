@@ -54,6 +54,7 @@ for process in processes:
 			memory[i] = process.letter
 		memend += process.frames
 
+print "Memory at time 0:"
 printMem()
 
 
