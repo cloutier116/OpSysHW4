@@ -11,7 +11,7 @@ class process:
  		self.exit = exit
  		self.running = False
  		self.location = 0
- 		self.memorySizes = []
+ 		self.nonContigLocations = []
 
  	def __str__(self):
  		return "process " + self.letter + " with size " + str(self.frames) + " starting at time " + str(self.arrival[0]) + " and ending at time " + str(self.exit[0])
@@ -183,6 +183,33 @@ def addNext(process, emptySpaces):
 		return emptySpaces
 	else:
 		return defragment(process, emptySpaces)
+def addNoncontig(process, emptySpaces):
+	overallFrames = 0
+
+	while overallFrames < process.frames:
+		if emptySpaces:
+			thisSpace = emptySpaces[0]
+		else:
+			print "Error: OUT-OF-MEMORY"
+			sys.exit()
+		if thisSpace[1] < process.frames- overallFrames:
+			for i  in range(thisSpace[0],thisSpace[0]+thisSpace[1]):
+				memory[i]= process.letter
+			overallFrames+=thisSpace[1]
+			process.nonContigLocations.append([thisSpace[0],thisSpace[1]])
+			emptySpaces.remove(thisSpace)
+		else:
+			for i in range(thisSpace[0],thisSpace[0] +( process.frames - overallFrames)):
+				memory[i] = process.letter
+			process.nonContigLocations.append([thisSpace[0],(process.frames - overallFrames)])
+			emptySpaces.append([thisSpace[0]+(process.frames - overallFrames),thisSpace[1]-(process.frames - overallFrames)])
+			emptySpaces.remove(thisSpace)
+			overallFrames +=(process.frames - overallFrames)
+	process.running = True
+
+	
+
+	return emptySpaces 
 
 addNext.cursor = 0
 
@@ -196,6 +223,8 @@ def addProcess(process, emptySpaces):
 		emptySpaces = addNext(process, emptySpaces)
 	elif algorithm == "worst":
 		emptySpaces = addWorst(process, emptySpaces)
+	elif algorithm == "noncontig":
+		emptySpaces = addNoncontig(process,emptySpaces)
 	return emptySpaces
 
 def removeProcess(process):
@@ -208,8 +237,18 @@ def removeProcess(process):
 	process.exit.pop(0)
 	if not process.arrival:
 		processes.remove(process)
+def removeNoncontig(process):
 
-
+	for space  in process.nonContigLocations:
+		for i in range(space[0], space[0]+space[1]):
+			memory[i] = "."
+		emptySpaces.append([space[0],space[1]])
+	process.running = False
+	process.nonContigLocations = []
+	process.arrival.pop(0)
+	process.exit.pop(0)
+	if not process.arrival:
+		processes.remove(process)
 
 if len(sys.argv) == 3:
 	if(sys.argv[1] == "-q"):
@@ -218,14 +257,14 @@ if len(sys.argv) == 3:
 	quiet = False
 	inFile = open(sys.argv[1], 'r')
 	algorithm = sys.argv[2]
-	if algorithm != "first" and algorithm != "best" and algorithm != "next" and algorithm != "worst":
+	if algorithm != "first" and algorithm != "best" and algorithm != "next" and algorithm != "worst" and algorithm!= "noncontig":
 		print "USAGE: python HW4.py [-q] <input file> { noncontig | first | best | next | worst }"
 		sys.exit()
 elif len(sys.argv) == 4:
 	quiet = True
 	inFile = open(sys.argv[2], 'r')
 	algorithm = sys.argv[3]
-	if algorithm != "first" and algorithm != "best" and algorithm != "next" and algorithm != "worst":
+	if algorithm != "first" and algorithm != "best" and algorithm != "next" and algorithm != "worst" and algorithm != "noncontig":
 		print "USAGE: python HW4.py [-q] <input file> { noncontig | first | best | next | worst }"
 		sys.exit()
 else:
@@ -263,6 +302,7 @@ for process in processes:
 	if int(process.arrival[0]) == 0:
 		process.running = True
 		process.location = memend
+		process.nonContigLocations.append([memend,process.frames])
 		if memend + process.frames < 1600:
 			for i in range(memend, memend + process.frames):
 				memory[i] = process.letter
@@ -309,7 +349,10 @@ while processes:
 	for process in shortestProc:
 		#print process
 		if process.running:
-			removeProcess(process)
+			if algorithm != "noncontig":
+				removeProcess(process)
+			else:
+				removeNoncontig(process)
 			shortestProc.remove(process)
 	#print shortestProc
 
