@@ -41,21 +41,57 @@ def sortSpaces(emptySpaces):
 			i+=1
 	return emptySpaces
 
-def addFirst(process):
+def defragment(process, emptySpaces):
+	print "Performing defragmentation..."
+	relocated = 0
+	global memory
+	memory = ['.' for x in range(0,1600)]
+
+	for i in range(0,80):
+		memory[i] = '#'
+
+	memend = 80
+
+	for temp in processes:
+		if temp.running:
+			if temp.location != memend:
+				temp.location = memend
+				relocated += 1
+			for i in range(memend, memend + temp.frames):
+				memory[i] = temp.letter
+			memend += temp.frames
+
+	emptySpaces = []
+	emptySpaces.append([memend, 1600-memend])
+
+	if emptySpaces[0][1] > process.frames:
+		print "Degragmentation completed."
+		print "Relocated %d processes to create a free memory block of %d units (%.2f%% of total memory)." %(relocated, emptySpaces[0][1], emptySpaces[0][1]/16.0)
+		process.letter
+		emptySpaces = addProcess(process, emptySpaces)
+		return emptySpaces
+	else:
+		print "Error: OUT-OF-MEMORY"
+		sys.exit()
+
+def addFirst(process, emptySpaces):
 	firstSpace = None
 	for space in emptySpaces:
 		if space[1] >= process.frames:
 			firstSpace = space
 			break
-
-	for i in range(firstSpace[0], firstSpace[0] + process.frames):
-		memory[i] = process.letter
-	process.running = True
-	emptySpaces.remove(firstSpace)
-	if firstSpace[1]-process.frames > 0:
-		emptySpaces.append([firstSpace[0]+process.frames, firstSpace[1]-process.frames])
-	process.location = firstSpace[0]
-def addBest(process):
+	if firstSpace:
+		for i in range(firstSpace[0], firstSpace[0] + process.frames):
+			memory[i] = process.letter
+		process.running = True
+		emptySpaces.remove(firstSpace)
+		if firstSpace[1]-process.frames > 0:
+			emptySpaces.append([firstSpace[0]+process.frames, firstSpace[1]-process.frames])
+		process.location = firstSpace[0]
+		return emptySpaces
+	else:
+		return defragment(process, emptySpaces)
+def addBest(process, emptySpaces):
 	bestSpace = None
 	currentBest = float("inf")
 	for space in emptySpaces:
@@ -64,16 +100,19 @@ def addBest(process):
 				bestSpace = space
 				currentBest = space[1]
 			
+	if bestSpace:
+		for i in range(bestSpace[0], bestSpace[0] + process.frames):
+			memory[i] = process.letter
+		process.running = True
+		emptySpaces.remove(bestSpace)
+		if bestSpace[1]-process.frames > 0:
+			emptySpaces.append([bestSpace[0]+process.frames, bestSpace[1]-process.frames])
+		process.location = bestSpace[0]
+		return emptySpaces
+	else:
+		return defragment(process, emptySpaces)
 
-	for i in range(bestSpace[0], bestSpace[0] + process.frames):
-		memory[i] = process.letter
-	process.running = True
-	emptySpaces.remove(bestSpace)
-	if bestSpace[1]-process.frames > 0:
-		emptySpaces.append([bestSpace[0]+process.frames, bestSpace[1]-process.frames])
-	process.location = bestSpace[0]
-
-def addWorst(process):
+def addWorst(process, emptySpaces):
 	worseSpace = None
 	currentworse = 0
 	for space in emptySpaces:
@@ -82,14 +121,17 @@ def addWorst(process):
 				worseSpace = space
 				currentworse = space[1]
 			
-
-	for i in range(worseSpace[0], worseSpace[0] + process.frames):
-		memory[i] = process.letter
-	process.running = True
-	emptySpaces.remove(worseSpace)
-	if worseSpace[1]-process.frames > 0:
-		emptySpaces.append([worseSpace[0]+process.frames, worseSpace[1]-process.frames])
-	process.location = worseSpace[0]
+	if worseSpace:
+		for i in range(worseSpace[0], worseSpace[0] + process.frames):
+			memory[i] = process.letter
+		process.running = True
+		emptySpaces.remove(worseSpace)
+		if worseSpace[1]-process.frames > 0:
+			emptySpaces.append([worseSpace[0]+process.frames, worseSpace[1]-process.frames])
+		process.location = worseSpace[0]
+		return emptySpaces
+	else:
+		return defragment(process, emptySpaces)
 
 
 def addNext(process, emptySpaces):
@@ -129,29 +171,31 @@ def addNext(process, emptySpaces):
 				firstSpace = space
 				break
 
-
-	for i in range(firstSpace[0], firstSpace[0] + process.frames):
-		memory[i] = process.letter
-	process.running = True
-	emptySpaces.remove(firstSpace)
-	if firstSpace[1]-process.frames > 0:
-		emptySpaces.append([firstSpace[0]+process.frames, firstSpace[1]-process.frames])
-	process.location = firstSpace[0]
-	addNext.cursor = firstSpace[0] + process.frames
-	return emptySpaces
+	if firstSpace:
+		for i in range(firstSpace[0], firstSpace[0] + process.frames):
+			memory[i] = process.letter
+		process.running = True
+		emptySpaces.remove(firstSpace)
+		if firstSpace[1]-process.frames > 0:
+			emptySpaces.append([firstSpace[0]+process.frames, firstSpace[1]-process.frames])
+		process.location = firstSpace[0]
+		addNext.cursor = firstSpace[0] + process.frames
+		return emptySpaces
+	else:
+		return defragment(process, emptySpaces)
 
 addNext.cursor = 0
 
 def addProcess(process, emptySpaces):
+	
 	if algorithm == "first":
-		addFirst(process)
+		emptySpaces = addFirst(process, emptySpaces)
 	elif algorithm == "best":
-		addBest(process)
+		emptySpaces = addBest(process, emptySpaces)
 	elif algorithm == "next":
 		emptySpaces = addNext(process, emptySpaces)
 	elif algorithm == "worst":
-		addWorst(process)
-
+		emptySpaces = addWorst(process, emptySpaces)
 	return emptySpaces
 
 def removeProcess(process):
@@ -219,9 +263,13 @@ for process in processes:
 	if int(process.arrival[0]) == 0:
 		process.running = True
 		process.location = memend
-		for i in range(memend, memend + process.frames):
-			memory[i] = process.letter
-		memend += process.frames
+		if memend + process.frames < 1600:
+			for i in range(memend, memend + process.frames):
+				memory[i] = process.letter
+			memend += process.frames
+		else:
+			print "Error: OUT-OF-MEMORY"
+			sys.exit()
 
 emptySpaces.append([memend, 1600-memend])
 #print emptySpaces
